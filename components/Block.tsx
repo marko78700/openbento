@@ -15,9 +15,26 @@ interface BlockProps {
   onDragEnter: (id: string) => void;
   onDragEnd: () => void;
   onDrop: (id: string) => void;
+  enableResize?: boolean;
+  isResizing?: boolean;
+  onResizeStart?: (block: BlockData, e: React.PointerEvent<HTMLButtonElement>) => void;
 }
 
-const Block: React.FC<BlockProps> = ({ block, isSelected, isDragTarget, isDragging, onEdit, onDelete, onDragStart, onDragEnter, onDragEnd, onDrop }) => {
+const Block: React.FC<BlockProps> = ({
+  block,
+  isSelected,
+  isDragTarget,
+  isDragging,
+  onEdit,
+  onDelete,
+  onDragStart,
+  onDragEnter,
+  onDragEnd,
+  onDrop,
+  enableResize,
+  isResizing,
+  onResizeStart,
+}) => {
   const [fetchedVideos, setFetchedVideos] = useState<Array<{ id: string; title: string; thumbnail: string }>>(block.youtubeVideos || []);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -89,6 +106,29 @@ const Block: React.FC<BlockProps> = ({ block, isSelected, isDragTarget, isDraggi
 
   const colClass = block.colSpan === 3 ? 'md:col-span-3 lg:col-span-3' : block.colSpan === 2 ? 'md:col-span-2 lg:col-span-2' : 'md:col-span-1 lg:col-span-1';
   const rowClass = block.rowSpan === 2 ? 'md:row-span-2' : 'md:row-span-1';
+
+  const resizeHandle =
+    enableResize && onResizeStart ? (
+      <button
+        type="button"
+        aria-label="Resize block"
+        className="absolute bottom-2 right-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto"
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onResizeStart(block, e);
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onDragStart={(e) => e.preventDefault()}
+      >
+        <div className="w-6 h-6 rounded-lg bg-black/20 backdrop-blur-sm flex items-end justify-end p-1">
+          <div className="w-3 h-3 border-b-2 border-r-2 border-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]" />
+        </div>
+      </button>
+    ) : null;
   
   // Explicit grid positioning (if defined)
   const gridPositionStyle: React.CSSProperties = {};
@@ -101,36 +141,37 @@ const Block: React.FC<BlockProps> = ({ block, isSelected, isDragTarget, isDraggi
     gridPositionStyle.gridRowEnd = block.gridRow + block.rowSpan;
   }
 
-  // Spacer Block
-  if (block.type === BlockType.SPACER) {
-      return (
-        <motion.div
-            layoutId={block.id}
-            layout
-            draggable
-            onDragStart={() => onDragStart(block.id)}
-            onDragEnter={() => onDragEnter(block.id)}
-            onDragOver={(e) => e.preventDefault()}
-            onDragEnd={onDragEnd}
-            onDrop={(e) => { e.preventDefault(); onDrop(block.id); }}
-            onClick={() => onEdit(block)}
-            className={`
-                relative rounded-xl ${colClass} ${rowClass} cursor-pointer
-                ${isSelected ? 'ring-2 ring-blue-500/50 bg-blue-50/50' : 'hover:bg-gray-100/50'}
-                ${isDragTarget ? 'ring-2 ring-violet-500 bg-violet-50/50 scale-[1.02]' : ''}
-                ${isDragging ? 'opacity-40 scale-95' : ''}
-                transition-all duration-200 group
-                flex items-center justify-center
-            `}
-            style={{ minHeight: '40px', ...gridPositionStyle }}
-        >
-             <div className={`text-gray-300 flex flex-col items-center gap-1 ${isSelected || isDragTarget ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                 <MoveVertical size={20} />
-                 <span className="text-xs font-medium uppercase tracking-wider">Spacer</span>
-             </div>
-        </motion.div>
-      );
-  }
+	  // Spacer Block
+	  if (block.type === BlockType.SPACER) {
+	      return (
+	        <motion.div
+	            layoutId={block.id}
+	            layout
+	            draggable={!isResizing}
+	            onDragStart={() => onDragStart(block.id)}
+	            onDragEnter={() => onDragEnter(block.id)}
+	            onDragOver={(e) => e.preventDefault()}
+	            onDragEnd={onDragEnd}
+	            onDrop={(e) => { e.preventDefault(); onDrop(block.id); }}
+	            onClick={() => onEdit(block)}
+	            className={`
+	                relative rounded-xl ${colClass} ${rowClass} cursor-pointer
+	                ${isSelected ? 'ring-2 ring-blue-500/50 bg-blue-50/50' : 'hover:bg-gray-100/50'}
+	                ${isDragTarget ? 'ring-2 ring-violet-500 bg-violet-50/50 scale-[1.02]' : ''}
+	                ${isDragging ? 'opacity-40 scale-95' : ''}
+	                transition-all duration-200 group
+	                flex items-center justify-center
+	            `}
+	            style={{ minHeight: '40px', ...gridPositionStyle }}
+	        >
+	             <div className={`text-gray-300 flex flex-col items-center gap-1 ${isSelected || isDragTarget ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+	                 <MoveVertical size={20} />
+	                 <span className="text-xs font-medium uppercase tracking-wider">Spacer</span>
+	             </div>
+	             {resizeHandle}
+	        </motion.div>
+	      );
+	  }
 
   // YouTube Block Detection
   const activeVideos = fetchedVideos.length > 0 ? fetchedVideos : [];
@@ -183,16 +224,16 @@ const Block: React.FC<BlockProps> = ({ block, isSelected, isDragTarget, isDraggi
       return 'grid grid-cols-2 gap-2'; // Large block
     };
 
-    return (
-      <motion.div 
-        layoutId={block.id}
-        layout
-        draggable
-        onDragStart={() => onDragStart(block.id)}
-        onDragEnter={() => onDragEnter(block.id)}
-        onDragOver={(e) => e.preventDefault()}
-        onDragEnd={onDragEnd}
-        onDrop={(e) => { e.preventDefault(); onDrop(block.id); }}
+	    return (
+	      <motion.div 
+	        layoutId={block.id}
+	        layout
+	        draggable={!isResizing}
+	        onDragStart={() => onDragStart(block.id)}
+	        onDragEnter={() => onDragEnter(block.id)}
+	        onDragOver={(e) => e.preventDefault()}
+	        onDragEnd={onDragEnd}
+	        onDrop={(e) => { e.preventDefault(); onDrop(block.id); }}
         onClick={() => onEdit(block)}
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -210,11 +251,12 @@ const Block: React.FC<BlockProps> = ({ block, isSelected, isDragTarget, isDraggi
         {isDragTarget && (
           <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 h-16 bg-violet-500 rounded-full shadow-md shadow-violet-500/30 animate-pulse z-30" />
         )}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 z-20 pointer-events-none">
-            <GripHorizontal size={20} />
-        </div>
+	        <div className="absolute top-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 z-20 pointer-events-none">
+	            <GripHorizontal size={20} />
+	        </div>
+	        {resizeHandle}
 
-        <div className={`w-full h-full pointer-events-none flex flex-col ${isSmallBlock ? 'p-3' : 'p-4'}`}>
+	        <div className={`w-full h-full pointer-events-none flex flex-col ${isSmallBlock ? 'p-3' : 'p-4'}`}>
           {/* YouTube Header - Compact for small blocks */}
           <div className={`flex items-center gap-2 ${isSmallBlock ? 'mb-2 pb-2' : 'mb-3 pb-3'} border-b border-gray-100`}>
             <div className={`${isSmallBlock ? 'w-7 h-7 rounded-lg' : 'w-9 h-9 rounded-xl'} bg-red-600 text-white flex items-center justify-center shadow-sm shrink-0`}>
@@ -292,7 +334,7 @@ const Block: React.FC<BlockProps> = ({ block, isSelected, isDragTarget, isDraggi
     <motion.div 
       layoutId={block.id}
       layout
-      draggable
+      draggable={!isResizing}
       onDragStart={() => onDragStart(block.id)}
       onDragEnter={() => onDragEnter(block.id)}
       onDragOver={(e) => e.preventDefault()}
@@ -318,6 +360,7 @@ const Block: React.FC<BlockProps> = ({ block, isSelected, isDragTarget, isDraggi
       <div className="absolute top-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-current/30 z-20 pointer-events-none">
           <GripHorizontal size={20} />
       </div>
+      {resizeHandle}
 
       {/* Overlay for image backgrounds */}
       {(isRichYoutube || isLinkWithImage) && (

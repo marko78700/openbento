@@ -13,6 +13,179 @@ interface BuilderProps {
   onBack?: () => void;
 }
 
+const GRID_COLS = 3;
+const GRID_MAX_SEARCH_ROWS = 200;
+const MAX_ROW_SPAN = 8;
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const blocksOverlap = (a: BlockData, b: BlockData) => {
+  if (a.gridColumn === undefined || a.gridRow === undefined || b.gridColumn === undefined || b.gridRow === undefined) return false;
+
+  const aCols = Math.min(a.colSpan, GRID_COLS);
+  const bCols = Math.min(b.colSpan, GRID_COLS);
+
+  const aRight = a.gridColumn + aCols;
+  const aBottom = a.gridRow + a.rowSpan;
+  const bRight = b.gridColumn + bCols;
+  const bBottom = b.gridRow + b.rowSpan;
+
+  return !(aRight <= b.gridColumn || a.gridColumn >= bRight || aBottom <= b.gridRow || a.gridRow >= bBottom);
+};
+
+const getOccupiedCells = (blocks: BlockData[], excludeIds: string[] = []) => {
+  const cells = new Set<string>();
+  for (const block of blocks) {
+    if (excludeIds.includes(block.id)) continue;
+    if (block.gridColumn === undefined || block.gridRow === undefined) continue;
+
+    const cols = Math.min(block.colSpan, GRID_COLS);
+    for (let c = block.gridColumn; c < block.gridColumn + cols; c++) {
+      for (let r = block.gridRow; r < block.gridRow + block.rowSpan; r++) {
+        cells.add(`${c}-${r}`);
+      }
+    }
+  }
+  return cells;
+};
+
+const findNextAvailablePosition = (block: BlockData, occupiedCells: Set<string>, startRow = 1) => {
+  const neededCols = Math.min(block.colSpan, GRID_COLS);
+  const fromRow = Math.max(1, startRow);
+
+  const scan = (rowStart: number, rowEnd: number) => {
+    for (let row = rowStart; row <= rowEnd; row++) {
+      for (let col = 1; col <= GRID_COLS - neededCols + 1; col++) {
+        let canPlace = true;
+        for (let c = col; c < col + neededCols && canPlace; c++) {
+          for (let r = row; r < row + block.rowSpan && canPlace; r++) {
+            if (occupiedCells.has(`${c}-${r}`)) canPlace = false;
+          }
+        }
+        if (canPlace) return { col, row };
+      }
+    }
+    return null;
+  };
+
+  const forward = scan(fromRow, GRID_MAX_SEARCH_ROWS);
+  if (forward) return forward;
+
+  const wrap = scan(1, fromRow - 1);
+  if (wrap) return wrap;
+
+  return { col: 1, row: GRID_MAX_SEARCH_ROWS + 1 };
+};
+
+const ensureBlocksHavePositions = (blocks: BlockData[]) => {
+  let didChange = false;
+
+  const hasMissing = blocks.some((b) => b.gridColumn === undefined || b.gridRow === undefined);
+  const needsClamp = blocks.some((b) => {
+    if (b.gridColumn === undefined) return false;
+    const col = clamp(b.gridColumn, 1, GRID_COLS);
+    const colSpan = clamp(b.colSpan, 1, GRID_COLS);
+    return col !== b.gridColumn || colSpan !== b.colSpan || col + colSpan - 1 > GRID_COLS;
+  });
+
+  if (!hasMissing && !needsClamp) return blocks;
+
+  const occupiedCells = new Set<string>();
+
+  const markOccupied = (block: BlockData) => {
+    if (block.gridColumn === undefined || block.gridRow === undefined) return;
+    const cols = Math.min(block.colSpan, GRID_COLS);
+    for (let c = block.gridColumn; c < block.gridColumn + cols; c++) {
+      for (let r = block.gridRow; r < block.gridRow + block.rowSpan; r++) {
+        occupiedCells.add(`${c}-${r}`);
+      }
+    }
+  };
+
+  // First pass: normalize existing positioned blocks and mark occupancy.
+  const normalized = blocks.map((block) => {
+    if (block.gridColumn === undefined || block.gridRow === undefined) return block;
+
+    const nextGridColumn = clamp(block.gridColumn, 1, GRID_COLS);
+    const nextGridRow = Math.max(1, block.gridRow);
+    const nextColSpanRaw = clamp(block.colSpan, 1, GRID_COLS);
+    const nextColSpan = Math.min(nextColSpanRaw, GRID_COLS - nextGridColumn + 1);
+    const nextRowSpan = clamp(block.rowSpan, 1, MAX_ROW_SPAN);
+
+    const changed =
+      nextGridColumn !== block.gridColumn ||
+      nextGridRow !== block.gridRow ||
+      nextColSpan !== block.colSpan ||
+      nextRowSpan !== block.rowSpan;
+
+    const nextBlock = changed
+      ? { ...block, gridColumn: nextGridColumn, gridRow: nextGridRow, colSpan: nextColSpan, rowSpan: nextRowSpan }
+      : block;
+
+    if (changed) didChange = true;
+    markOccupied(nextBlock);
+    return nextBlock;
+  });
+
+  // Second pass: place missing blocks.
+  const placed = normalized.map((block) => {
+    if (block.gridColumn !== undefined && block.gridRow !== undefined) return block;
+
+    const nextColSpanRaw = clamp(block.colSpan, 1, GRID_COLS);
+    const nextColSpan = nextColSpanRaw;
+    const nextRowSpan = clamp(block.rowSpan, 1, MAX_ROW_SPAN);
+
+    const neededCols = Math.min(nextColSpan, GRID_COLS);
+
+    let found: { col: number; row: number } | null = null;
+    for (let row = 1; row <= GRID_MAX_SEARCH_ROWS && !found; row++) {
+      for (let col = 1; col <= GRID_COLS - neededCols + 1 && !found; col++) {
+        let canPlace = true;
+        for (let c = col; c < col + neededCols && canPlace; c++) {
+          for (let r = row; r < row + nextRowSpan && canPlace; r++) {
+            if (occupiedCells.has(`${c}-${r}`)) canPlace = false;
+          }
+        }
+        if (canPlace) found = { col, row };
+      }
+    }
+
+    const pos = found ?? { col: 1, row: GRID_MAX_SEARCH_ROWS + 1 };
+    const nextBlock = { ...block, gridColumn: pos.col, gridRow: pos.row, colSpan: nextColSpan, rowSpan: nextRowSpan };
+    markOccupied(nextBlock);
+    didChange = true;
+    return nextBlock;
+  });
+
+  return didChange ? placed : blocks;
+};
+
+const resizeBlockAndResolve = (blocks: BlockData[], blockId: string, requestedColSpan: number, requestedRowSpan: number) => {
+  const positioned = ensureBlocksHavePositions(blocks);
+  const target = positioned.find((b) => b.id === blockId);
+  if (!target || target.gridColumn === undefined || target.gridRow === undefined) return positioned;
+
+  const colSpan = clamp(requestedColSpan, 1, GRID_COLS - target.gridColumn + 1);
+  const rowSpan = clamp(requestedRowSpan, 1, MAX_ROW_SPAN);
+
+  if (colSpan === target.colSpan && rowSpan === target.rowSpan) return positioned;
+
+  const resized = { ...target, colSpan, rowSpan };
+  let nextBlocks = positioned.map((b) => (b.id === blockId ? resized : b));
+
+  const conflicting = nextBlocks.filter((b) => b.id !== blockId && blocksOverlap(resized, b));
+  if (conflicting.length === 0) return nextBlocks;
+
+  for (const conflict of conflicting) {
+    const occupied = getOccupiedCells(nextBlocks, [conflict.id]);
+    const startRow = conflict.gridRow ?? resized.gridRow ?? 1;
+    const newPos = findNextAvailablePosition(conflict, occupied, startRow);
+    nextBlocks = nextBlocks.map((b) => (b.id === conflict.id ? { ...b, gridColumn: newPos.col, gridRow: newPos.row } : b));
+  }
+
+  return nextBlocks;
+};
+
 const Builder: React.FC<BuilderProps> = ({ onBack }) => {
   // Load initial data from localStorage
   const [activeBento, setActiveBento] = useState<SavedBento | null>(null);
@@ -72,9 +245,18 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null);
   const [dragOverSlotIndex, setDragOverSlotIndex] = useState<number | null>(null);
+  const [resizingBlockId, setResizingBlockId] = useState<string | null>(null);
 
   // Auto-save debounce ref
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const gridRef = useRef<HTMLElement | null>(null);
+  const resizeSessionRef = useRef<{
+    blockId: string;
+    startCol: number;
+    startRow: number;
+    lastColSpan: number;
+    lastRowSpan: number;
+  } | null>(null);
 
   // Load bento on mount
   useEffect(() => {
@@ -129,6 +311,15 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
       return updated;
     });
   }, [profile, autoSave]);
+
+  // Ensure every block has a stable grid position (required for drag + resize UX).
+  useEffect(() => {
+    if (!profile) return;
+    const next = ensureBlocksHavePositions(blocks);
+    if (next !== blocks) {
+      handleSetBlocks(next);
+    }
+  }, [blocks, handleSetBlocks, profile]);
 
   // Handle bento change from dropdown
   const handleBentoChange = useCallback((bento: SavedBento) => {
@@ -547,6 +738,86 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
     handleDragEnd();
   };
 
+  const getGridCellFromPointer = useCallback((clientX: number, clientY: number) => {
+    const grid = gridRef.current;
+    if (!grid) return null;
+
+    const rect = grid.getBoundingClientRect();
+    const style = window.getComputedStyle(grid);
+    const colGap = parseFloat(style.columnGap || '0') || 0;
+    const rowGap = parseFloat(style.rowGap || '0') || 0;
+    const rowHeight = parseFloat(style.gridAutoRows || '200') || 200;
+
+    const usableWidth = Math.max(0, rect.width - colGap * (GRID_COLS - 1));
+    const colWidth = usableWidth / GRID_COLS || 1;
+
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    const col = clamp(Math.floor(x / (colWidth + colGap)) + 1, 1, GRID_COLS);
+    const row = Math.max(1, Math.floor(y / (rowHeight + rowGap)) + 1);
+
+    return { col, row };
+  }, []);
+
+  const handleResizeStart = useCallback(
+    (block: BlockData, e: React.PointerEvent<HTMLButtonElement>) => {
+      if (!isSidebarOpen) return;
+      if (viewMode !== 'desktop') return;
+      if (!block.gridColumn || !block.gridRow) return;
+
+      setResizingBlockId(block.id);
+      handleDragEnd();
+
+      resizeSessionRef.current = {
+        blockId: block.id,
+        startCol: block.gridColumn,
+        startRow: block.gridRow,
+        lastColSpan: block.colSpan,
+        lastRowSpan: block.rowSpan,
+      };
+
+      const onMove = (ev: PointerEvent) => {
+        const session = resizeSessionRef.current;
+        if (!session) return;
+        ev.preventDefault();
+
+        const cell = getGridCellFromPointer(ev.clientX, ev.clientY);
+        if (!cell) return;
+
+        const nextColSpan = cell.col - session.startCol + 1;
+        const nextRowSpan = cell.row - session.startRow + 1;
+
+        if (nextColSpan === session.lastColSpan && nextRowSpan === session.lastRowSpan) return;
+
+        session.lastColSpan = nextColSpan;
+        session.lastRowSpan = nextRowSpan;
+
+        handleSetBlocks((prev) => resizeBlockAndResolve(prev, session.blockId, nextColSpan, nextRowSpan));
+      };
+
+      const onEnd = () => {
+        window.removeEventListener('pointermove', onMove as any);
+        window.removeEventListener('pointerup', onEnd as any);
+        window.removeEventListener('pointercancel', onEnd as any);
+        resizeSessionRef.current = null;
+        setResizingBlockId(null);
+      };
+
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup', onEnd, { passive: true });
+      window.addEventListener('pointercancel', onEnd, { passive: true });
+
+      // Ensure we receive pointer events even if the cursor leaves the handle.
+      try {
+        (e.currentTarget as any).setPointerCapture?.(e.pointerId);
+      } catch {
+        // ignore
+      }
+    },
+    [getGridCellFromPointer, handleSetBlocks, isSidebarOpen, viewMode],
+  );
+
   const editingBlock = blocks.find(b => b.id === editingBlockId) || null;
 
   // Loading state
@@ -931,6 +1202,7 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
 
                                 return (
                                     <motion.main 
+                                        ref={gridRef as any}
                                         layout
                                         className="grid gap-5"
                                         style={{ 
@@ -947,6 +1219,9 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
                                                 isSelected={editingBlockId === block.id}
                                                 isDragTarget={dragOverBlockId === block.id}
                                                 isDragging={draggedBlockId === block.id}
+                                                enableResize={viewMode === 'desktop' && isSidebarOpen}
+                                                isResizing={resizingBlockId === block.id}
+                                                onResizeStart={handleResizeStart}
                                                 onEdit={(b) => { setEditingBlockId(b.id); setIsSidebarOpen(true); }}
                                                 onDelete={deleteBlock}
                                                 onDragStart={handleDragStart}

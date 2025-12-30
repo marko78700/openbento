@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BlockData, BlockType, SocialPlatform, UserProfile } from '../types';
 import { BASE_COLORS } from '../constants';
-import { X, Link, MapPin, Image as ImageIcon, Type, Github, Upload, Trash2, LayoutGrid, Type as TypeIcon, MoveVertical, ArrowLeftRight, Youtube, ExternalLink, RefreshCw, Loader2, Grid3X3, Square, List, Palette, CheckCircle2 } from 'lucide-react';
+import { X, Link, MapPin, Image as ImageIcon, Type, Github, Upload, Trash2, Type as TypeIcon, MoveVertical, Youtube, ExternalLink, RefreshCw, Loader2, Grid3X3, Square, List, Palette, CheckCircle2 } from 'lucide-react';
 import {
   buildSocialUrl,
   extractHandleFromUrl,
@@ -469,34 +469,9 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
                 )}
             </div>
 
-            {/* Layout Controls */}
-            <div className="space-y-4">
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider">Dimensions</label>
-                <div className="grid grid-cols-2 gap-3">
-                    <button 
-                        onClick={() => updateBlock({...editingBlock, colSpan: editingBlock.colSpan >= 2 ? 1 : 2})}
-                        className={`p-3 border rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${editingBlock.colSpan === 2 ? 'bg-black text-white border-black shadow-md' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                    >
-                        <ArrowLeftRight size={16}/> {editingBlock.colSpan === 2 ? 'Wide' : editingBlock.colSpan === 3 ? 'Full' : 'Regular'}
-                    </button>
-                    <button 
-                         onClick={() => updateBlock({...editingBlock, colSpan: 3})}
-                         className={`p-3 border rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${editingBlock.colSpan === 3 ? 'bg-black text-white border-black shadow-md' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                    >
-                        <LayoutGrid size={16} /> Full Width
-                    </button>
-                    <button 
-                        onClick={() => updateBlock({...editingBlock, rowSpan: editingBlock.rowSpan === 1 ? 2 : 1})}
-                        className={`p-3 border rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${editingBlock.rowSpan === 2 ? 'bg-black text-white border-black shadow-md' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                    >
-                        <MoveVertical size={16}/> {editingBlock.rowSpan === 2 ? 'Tall' : 'Short'}
-                    </button>
-                </div>
-            </div>
-
-	            {/* Appearance (Colors) */}
-	            {editingBlock.type !== BlockType.SPACER && (
-	                <div className="space-y-4">
+		            {/* Appearance (Colors) */}
+		            {editingBlock.type !== BlockType.SPACER && (
+		                <div className="space-y-4">
 	                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
 	                        <Palette size={14}/> Background
 	                    </label>
