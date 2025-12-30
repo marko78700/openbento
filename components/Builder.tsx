@@ -5,7 +5,7 @@ import EditorSidebar from './EditorSidebar';
 import ProfileDropdown from './ProfileDropdown';
 import { exportSite } from '../services/exportService';
 import { getOrCreateActiveBento, updateBentoData, setActiveBentoId, getBento } from '../services/storageService';
-import { Download, Layout, Share2, X, Check, Plus, Eye, Smartphone, Monitor, Home } from 'lucide-react';
+import { Download, Layout, Share2, X, Check, Plus, Eye, Smartphone, Monitor, Home, Globe, BarChart3, RefreshCw, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface BuilderProps {
@@ -20,8 +20,21 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showDeployModal, setShowDeployModal] = useState(false);
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [isLoading, setIsLoading] = useState(true);
+
+  const [analyticsDays, setAnalyticsDays] = useState<number>(30);
+  const [analyticsAdminToken, setAnalyticsAdminToken] = useState<string>(() => {
+    try {
+      return sessionStorage.getItem('openbento_analytics_admin_token') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
   
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null);
@@ -141,9 +154,61 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
 
   const handleExport = () => {
     if (!profile) return;
-    exportSite({ profile, blocks });
+    exportSite({ profile, blocks }, { siteId: activeBento?.id });
     setShowDeployModal(true);
   };
+
+  const fetchAnalytics = useCallback(async () => {
+    if (!profile) return;
+
+    const supabaseUrl = profile.analytics?.supabaseUrl?.trim().replace(/\/+$/, '') || '';
+    if (!supabaseUrl) {
+      setAnalyticsError('Set your Supabase URL in the sidebar (Analytics section).');
+      return;
+    }
+
+    if (!activeBento?.id) {
+      setAnalyticsError('Missing siteId (active bento).');
+      return;
+    }
+
+    if (!analyticsAdminToken.trim()) {
+      setAnalyticsError('Enter your admin token to view analytics.');
+      return;
+    }
+
+    setIsLoadingAnalytics(true);
+    setAnalyticsError(null);
+
+    try {
+      const endpoint = `${supabaseUrl}/functions/v1/openbento-analytics-admin?siteId=${encodeURIComponent(activeBento.id)}&days=${encodeURIComponent(String(analyticsDays))}`;
+      const res = await fetch(endpoint, {
+        headers: {
+          'x-openbento-admin-token': analyticsAdminToken.trim(),
+        },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = typeof json?.error === 'string' ? json.error : 'Failed to load analytics.';
+        throw new Error(message);
+      }
+      setAnalyticsData(json);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to load analytics.';
+      setAnalyticsError(message);
+      setAnalyticsData(null);
+    } finally {
+      setIsLoadingAnalytics(false);
+    }
+  }, [profile, activeBento?.id, analyticsAdminToken, analyticsDays]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('openbento_analytics_admin_token', analyticsAdminToken);
+    } catch {
+      // ignore
+    }
+  }, [analyticsAdminToken]);
 
   const closeSidebar = () => {
       setEditingBlockId(null);
@@ -377,6 +442,39 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
                     {isSidebarOpen ? <Eye size={18}/> : <Layout size={18}/>}
                     <span className="hidden sm:inline">{isSidebarOpen ? 'Preview' : 'Edit'}</span>
                  </button>
+
+                 {import.meta.env.DEV && (
+                   <button
+                     onClick={() => {
+                       const url = profile?.liveUrl?.trim();
+                       if (!url) {
+                         alert('Set your Live URL in the sidebar (Profile Identity).');
+                         return;
+                       }
+                       window.open(url, '_blank', 'noopener,noreferrer');
+                     }}
+                     className="bg-white/90 backdrop-blur-xl px-5 py-2.5 rounded-xl shadow-lg shadow-black/5 border border-white/50 text-sm font-semibold text-gray-700 hover:bg-white transition-all flex items-center gap-2"
+                     title="Open your deployed page"
+                   >
+                     <Globe size={18} />
+                     <span className="hidden sm:inline">View Online</span>
+                   </button>
+                 )}
+
+                 {(import.meta.env.DEV || profile?.analytics?.enabled) && (
+                   <button
+                     onClick={() => {
+                       setShowAnalyticsModal(true);
+                       // Auto-refresh when opening if we already have a token
+                       if (analyticsAdminToken.trim()) fetchAnalytics();
+                     }}
+                     className="bg-white/90 backdrop-blur-xl px-5 py-2.5 rounded-xl shadow-lg shadow-black/5 border border-white/50 text-sm font-semibold text-gray-700 hover:bg-white transition-all flex items-center gap-2"
+                     title="View analytics dashboard"
+                   >
+                     <BarChart3 size={18} />
+                     <span className="hidden sm:inline">Analytics</span>
+                   </button>
+                 )}
                  
                  <button 
                    onClick={handleExport}
@@ -755,6 +853,7 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
          updateBlock={updateBlock}
          onDelete={deleteBlock}
          closeEdit={closeSidebar}
+         activeBentoId={activeBento?.id}
       />
 
       {/* 3. DEPLOY MODAL */}
@@ -812,6 +911,146 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
                 
                 <div className="p-8 pt-6">
                     <button onClick={() => setShowDeployModal(false)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                        Close
+                    </button>
+                </div>
+             </motion.div>
+          </motion.div>
+      )}
+      </AnimatePresence>
+
+      {/* 4. ANALYTICS MODAL */}
+      <AnimatePresence>
+      {showAnalyticsModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+             <motion.div 
+                initial={{ scale: 0.95, opacity: 0, y: 16 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 16 }}
+                className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden ring-1 ring-gray-900/5"
+             >
+                <div className="p-8 pb-6 flex justify-between items-start border-b border-gray-100">
+                   <div>
+                       <div className="w-12 h-12 bg-violet-100 rounded-full flex items-center justify-center text-violet-600 mb-4">
+                           <BarChart3 size={24}/>
+                       </div>
+                       <h2 className="text-2xl font-bold text-gray-900">Analytics</h2>
+                       <p className="text-gray-500 mt-1 text-sm">
+                         Site ID: <span className="font-mono text-xs">{activeBento?.id || '—'}</span>
+                       </p>
+                   </div>
+                   <button onClick={() => setShowAnalyticsModal(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"><X size={24}/></button>
+                </div>
+
+                <div className="p-8 pt-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2 bg-gray-50 border border-gray-100 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Admin Token</label>
+                        <button
+                          onClick={fetchAnalytics}
+                          disabled={isLoadingAnalytics}
+                          className="px-3 py-2 rounded-xl bg-gray-900 text-white text-xs font-bold hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          <RefreshCw size={14} className={isLoadingAnalytics ? 'animate-spin' : ''} />
+                          Refresh
+                        </button>
+                      </div>
+                      <input
+                        type="password"
+                        value={analyticsAdminToken}
+                        onChange={(e) => setAnalyticsAdminToken(e.target.value)}
+                        placeholder="OPENBENTO_ANALYTICS_ADMIN_TOKEN"
+                        className="w-full bg-white border border-gray-200 rounded-xl p-3.5 focus:ring-2 focus:ring-black/5 focus:border-black focus:outline-none transition-all font-medium text-gray-700"
+                      />
+                      <div className="flex items-center gap-3">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Range</label>
+                        <select
+                          value={analyticsDays}
+                          onChange={(e) => setAnalyticsDays(Number(e.target.value))}
+                          className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm font-semibold text-gray-700"
+                        >
+                          <option value={7}>Last 7 days</option>
+                          <option value={30}>Last 30 days</option>
+                          <option value={90}>Last 90 days</option>
+                        </select>
+                        {analyticsData?.sampled && (
+                          <span className="ml-auto inline-flex items-center gap-2 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+                            <AlertTriangle size={14} />
+                            Sampled
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-400">
+                        This dashboard reads from the <code>openbento-analytics-admin</code> Edge Function using your admin token.
+                      </p>
+                    </div>
+
+                    <div className="bg-white border border-gray-100 rounded-2xl p-4">
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Totals</p>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-700">Page views</span>
+                          <span className="text-sm font-bold text-gray-900">{analyticsData?.totals?.pageViews ?? '—'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-700">Clicks</span>
+                          <span className="text-sm font-bold text-gray-900">{analyticsData?.totals?.clicks ?? '—'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {analyticsError && (
+                    <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-sm text-red-700 font-semibold">
+                      {analyticsError}
+                    </div>
+                  )}
+
+                  {analyticsData && !analyticsError && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="bg-white border border-gray-100 rounded-2xl p-4">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Top destinations</p>
+                        <div className="space-y-2">
+                          {(analyticsData.topDestinations || []).length === 0 ? (
+                            <p className="text-sm text-gray-400">No clicks yet.</p>
+                          ) : (
+                            analyticsData.topDestinations.map((d: any) => (
+                              <div key={d.key} className="flex items-start justify-between gap-4">
+                                <p className="text-xs font-mono text-gray-700 break-all">{d.key}</p>
+                                <span className="text-xs font-bold text-gray-900 shrink-0">{d.clicks}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="bg-white border border-gray-100 rounded-2xl p-4">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Top referrers</p>
+                        <div className="space-y-2">
+                          {(analyticsData.topReferrers || []).length === 0 ? (
+                            <p className="text-sm text-gray-400">No referrers yet.</p>
+                          ) : (
+                            analyticsData.topReferrers.map((r: any) => (
+                              <div key={r.host} className="flex items-center justify-between gap-4">
+                                <p className="text-xs font-mono text-gray-700 break-all">{r.host}</p>
+                                <span className="text-xs font-bold text-gray-900 shrink-0">{r.pageViews}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-8 pt-6 border-t border-gray-100">
+                    <button onClick={() => setShowAnalyticsModal(false)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
                         Close
                     </button>
                 </div>

@@ -21,6 +21,7 @@ interface EditorSidebarProps {
   onDelete: (id: string) => void;
   closeEdit: () => void;
   isOpen: boolean;
+  activeBentoId?: string;
 }
 
 const EditorSidebar: React.FC<EditorSidebarProps> = ({
@@ -31,7 +32,8 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
   updateBlock,
   onDelete,
   closeEdit,
-  isOpen
+  isOpen,
+  activeBentoId
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isFetching, setIsFetching] = useState(false);
@@ -243,6 +245,14 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
       if (editingBlock.customBackground) return editingBlock.customBackground === c.hex;
       return editingBlock.color === c.bg;
   };
+
+  const analyticsSupabaseUrl = profile.analytics?.supabaseUrl?.trim().replace(/\/+$/, '') || '';
+  const analyticsTrackEndpoint = analyticsSupabaseUrl
+    ? `${analyticsSupabaseUrl}/functions/v1/openbento-analytics-track`
+    : '';
+  const analyticsAdminEndpoint = analyticsSupabaseUrl
+    ? `${analyticsSupabaseUrl}/functions/v1/openbento-analytics-admin`
+    : '';
 
   return (
     <div 
@@ -600,40 +610,131 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
                     </div>
                 </div>
 
-	                <div>
-	                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Bio</label>
-	                   <textarea 
-	                      value={profile.bio} onChange={(e) => setProfile({...profile, bio: e.target.value})}
-	                      className="w-full bg-gray-50/80 border border-gray-200 rounded-xl p-3.5 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 focus:outline-none h-24 resize-none text-sm leading-relaxed transition-all"
-	                      placeholder="Tell your story..."
-	                   />
-	                </div>
+		                <div>
+		                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Bio</label>
+		                   <textarea 
+		                      value={profile.bio} onChange={(e) => setProfile({...profile, bio: e.target.value})}
+		                      className="w-full bg-gray-50/80 border border-gray-200 rounded-xl p-3.5 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 focus:outline-none h-24 resize-none text-sm leading-relaxed transition-all"
+		                      placeholder="Tell your story..."
+		                   />
+		                </div>
 
-	                <div>
-	                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Branding</label>
-	                   <div className="flex items-center justify-between gap-4 p-4 bg-white border border-gray-100 rounded-2xl">
-	                      <div className="min-w-0">
-	                        <p className="text-sm font-semibold text-gray-900">Show OpenBento credit</p>
-	                        <p className="text-xs text-gray-400">Displays the OpenBento footer in the builder and export.</p>
-	                      </div>
-	                      <button
-	                        type="button"
-	                        onClick={() => setProfile({ ...profile, showBranding: !(profile.showBranding !== false) })}
-	                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
-	                          profile.showBranding !== false ? 'bg-gray-900' : 'bg-gray-200'
-	                        }`}
-	                        aria-pressed={profile.showBranding !== false}
-	                        aria-label="Toggle OpenBento branding"
-	                      >
-	                        <span
-	                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-	                            profile.showBranding !== false ? 'translate-x-6' : 'translate-x-1'
-	                          }`}
-	                        />
-	                      </button>
-	                   </div>
-	                </div>
-	             </section>
+		                {import.meta.env.DEV && (
+		                  <div>
+		                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Live URL (Dev)</label>
+		                     <input
+		                        type="text"
+		                        value={profile.liveUrl || ''}
+		                        onChange={(e) => setProfile({ ...profile, liveUrl: e.target.value })}
+		                        className="w-full bg-gray-50/80 border border-gray-200 rounded-xl p-3.5 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 focus:outline-none text-sm leading-relaxed transition-all"
+		                        placeholder="https://your-domain.com"
+		                     />
+		                     <p className="text-[10px] text-gray-400 mt-2">Used by the “View Online” button in dev.</p>
+		                  </div>
+		                )}
+
+		                <div>
+		                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Branding</label>
+		                   <div className="flex items-center justify-between gap-4 p-4 bg-white border border-gray-100 rounded-2xl">
+		                      <div className="min-w-0">
+		                        <p className="text-sm font-semibold text-gray-900">Show OpenBento credit</p>
+		                        <p className="text-xs text-gray-400">Displays the OpenBento footer in the builder and export.</p>
+		                      </div>
+		                      <button
+		                        type="button"
+		                        onClick={() => setProfile({ ...profile, showBranding: !(profile.showBranding !== false) })}
+		                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+		                          profile.showBranding !== false ? 'bg-gray-900' : 'bg-gray-200'
+		                        }`}
+		                        aria-pressed={profile.showBranding !== false}
+		                        aria-label="Toggle OpenBento branding"
+		                      >
+		                        <span
+		                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+		                            profile.showBranding !== false ? 'translate-x-6' : 'translate-x-1'
+		                          }`}
+		                        />
+		                      </button>
+		                   </div>
+		                </div>
+
+		                <div>
+		                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Analytics (Supabase)</label>
+		                   <div className="space-y-4 p-4 bg-white border border-gray-100 rounded-2xl">
+		                      <div className="flex items-center justify-between gap-4">
+		                        <div className="min-w-0">
+		                          <p className="text-sm font-semibold text-gray-900">Enable analytics</p>
+		                          <p className="text-xs text-gray-400">Tracks inbound page views and outbound clicks on the exported page.</p>
+		                        </div>
+		                        <button
+		                          type="button"
+		                          onClick={() =>
+		                            setProfile({
+		                              ...profile,
+		                              analytics: {
+		                                ...(profile.analytics ?? {}),
+		                                enabled: !(profile.analytics?.enabled ?? false),
+		                              },
+		                            })
+		                          }
+		                          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+		                            profile.analytics?.enabled ? 'bg-gray-900' : 'bg-gray-200'
+		                          }`}
+		                          aria-pressed={!!profile.analytics?.enabled}
+		                          aria-label="Toggle analytics"
+		                        >
+		                          <span
+		                            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+		                              profile.analytics?.enabled ? 'translate-x-6' : 'translate-x-1'
+		                            }`}
+		                          />
+		                        </button>
+		                      </div>
+
+		                      <div>
+		                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Supabase Project URL</label>
+		                        <input
+		                          type="text"
+		                          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 focus:ring-2 focus:ring-black/5 focus:border-black focus:outline-none transition-all font-medium text-gray-600"
+		                          value={profile.analytics?.supabaseUrl || ''}
+		                          onChange={(e) =>
+		                            setProfile({
+		                              ...profile,
+		                              analytics: {
+		                                ...(profile.analytics ?? {}),
+		                                supabaseUrl: e.target.value,
+		                              },
+		                            })
+		                          }
+		                          placeholder="https://xxxx.supabase.co"
+		                        />
+		                        <p className="text-[10px] text-gray-400 mt-2">
+		                          Required for export tracking. Deploy the Edge Functions <code>openbento-analytics-track</code> and <code>openbento-analytics-admin</code>.
+		                        </p>
+		                      </div>
+
+		                      {activeBentoId && (
+		                        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+		                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Site ID</p>
+		                          <p className="text-xs font-mono text-gray-700 break-all">{activeBentoId}</p>
+		                        </div>
+		                      )}
+
+		                      {analyticsSupabaseUrl && (
+		                        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-3">
+		                          <div>
+		                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Track endpoint</p>
+		                            <p className="text-xs font-mono text-gray-700 break-all">{analyticsTrackEndpoint}</p>
+		                          </div>
+		                          <div>
+		                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Admin endpoint</p>
+		                            <p className="text-xs font-mono text-gray-700 break-all">{analyticsAdminEndpoint}</p>
+		                          </div>
+		                        </div>
+		                      )}
+		                   </div>
+		                </div>
+		             </section>
 
              <section className="space-y-5">
                 <div className="flex items-center gap-2">

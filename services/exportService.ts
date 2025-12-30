@@ -615,8 +615,80 @@ footer a:hover {
 }
 `;
 
-const generateJS = () => `
+const escapeAttr = (value: string) =>
+  value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+
+const generateJS = (opts: { analytics?: { enabled: boolean; endpoint: string; siteId: string } }) => `
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Analytics (page views + outbound clicks) ---
+    const analytics = ${opts.analytics ? JSON.stringify(opts.analytics) : 'null'};
+
+    const track = async (payload) => {
+        if (!analytics) return;
+        try {
+            const body = JSON.stringify(payload);
+            if (navigator.sendBeacon) {
+                const blob = new Blob([body], { type: 'application/json' });
+                navigator.sendBeacon(analytics.endpoint, blob);
+                return;
+            }
+            fetch(analytics.endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body,
+                keepalive: true
+            }).catch(() => {});
+        } catch (_) {}
+    };
+
+    const getUtm = () => {
+        const params = new URLSearchParams(window.location.search);
+        return {
+            source: params.get('utm_source') || undefined,
+            medium: params.get('utm_medium') || undefined,
+            campaign: params.get('utm_campaign') || undefined,
+            term: params.get('utm_term') || undefined,
+            content: params.get('utm_content') || undefined,
+        };
+    };
+
+    track({
+        siteId: analytics?.siteId,
+        event: 'page_view',
+        pageUrl: window.location.href,
+        referrer: document.referrer || undefined,
+        utm: getUtm(),
+        language: navigator.language,
+        screenW: window.screen?.width,
+        screenH: window.screen?.height
+    });
+
+    document.addEventListener('click', (ev) => {
+        const target = ev.target;
+        if (!(target instanceof Element)) return;
+        const link = target.closest('a.bento-item');
+        if (!link) return;
+        const blockId = link.getAttribute('data-block-id') || undefined;
+        const destinationUrl = link.getAttribute('href') || undefined;
+        track({
+            siteId: analytics?.siteId,
+            event: 'click',
+            blockId,
+            destinationUrl,
+            pageUrl: window.location.href,
+            referrer: document.referrer || undefined,
+            utm: getUtm(),
+            language: navigator.language,
+            screenW: window.screen?.width,
+            screenH: window.screen?.height
+        });
+    }, { capture: true });
+
     // YouTube Fetcher
     const fetchers = document.querySelectorAll('.youtube-fetcher');
     fetchers.forEach(async (el) => {
@@ -838,7 +910,13 @@ const generateHtml = (data: SiteData, imageMap: Record<string, string>): string 
     }
 
     const tag = (block.content && !block.channelId && block.type !== BlockType.TEXT) ? 'a' : 'div';
-    const href = tag === 'a' ? `href="${block.content}" target="_blank"` : '';
+    const href = tag === 'a' ? `href="${escapeAttr(block.content!)}" target="_blank" rel="noopener noreferrer"` : '';
+    const analyticsAttrs = [
+      `data-block-id="${escapeAttr(block.id)}"`,
+      `data-block-type="${escapeAttr(block.type)}"`,
+      block.type === BlockType.SOCIAL && block.socialPlatform ? `data-social-platform="${escapeAttr(block.socialPlatform)}"` : '',
+      block.type === BlockType.SOCIAL && block.socialHandle ? `data-social-handle="${escapeAttr(block.socialHandle)}"` : '',
+    ].filter(Boolean).join(' ');
     
     // Add explicit grid positioning for correct order
     const gridPosition = block.gridColumn !== undefined && block.gridRow !== undefined 
@@ -847,7 +925,7 @@ const generateHtml = (data: SiteData, imageMap: Record<string, string>): string 
     const style = `background: ${bgStyle}; color: ${textStyle}; ${gridPosition}`;
     const noHover = !isInteractive ? 'no-hover' : '';
 
-    return `<${tag} ${href} class="bento-item ${colClass} ${rowClass} ${noHover}" style="${style}">${contentHtml}</${tag}>`;
+    return `<${tag} ${href} ${analyticsAttrs} class="bento-item ${colClass} ${rowClass} ${noHover}" style="${style}">${contentHtml}</${tag}>`;
   };
 
   return `<!DOCTYPE html>
@@ -885,7 +963,7 @@ const generateHtml = (data: SiteData, imageMap: Record<string, string>): string 
 </html>`;
 };
 
-export const exportSite = async (data: SiteData) => {
+export const exportSite = async (data: SiteData, opts?: { siteId?: string }) => {
   const zip = new JSZip();
   const folderAssets = zip.folder("assets");
   const imageMap: Record<string, string> = {};
@@ -909,7 +987,18 @@ export const exportSite = async (data: SiteData) => {
   }
 
   zip.file("styles.css", generateCSS(data.profile.name));
-  zip.file("app.js", generateJS());
+
+  const analyticsSupabaseUrl = data.profile.analytics?.supabaseUrl?.trim().replace(/\/+$/, '') || '';
+  const analyticsEnabled = !!(data.profile.analytics?.enabled && analyticsSupabaseUrl && opts?.siteId);
+  const analytics = analyticsEnabled
+    ? {
+        enabled: true,
+        endpoint: `${analyticsSupabaseUrl}/functions/v1/openbento-analytics-track`,
+        siteId: opts!.siteId!,
+      }
+    : undefined;
+
+  zip.file("app.js", generateJS({ analytics }));
   zip.file("index.html", generateHtml(data, imageMap));
   zip.file("data.json", JSON.stringify(data, null, 2));
 

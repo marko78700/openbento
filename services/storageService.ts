@@ -11,7 +11,11 @@ const DEFAULT_PROFILE = {
   avatarUrl: AVATAR_PLACEHOLDER,
   theme: 'light' as const,
   primaryColor: 'blue',
-  showBranding: true
+  showBranding: true,
+  analytics: {
+    enabled: false,
+    supabaseUrl: ''
+  }
 };
 
 const DEFAULT_BLOCKS = [

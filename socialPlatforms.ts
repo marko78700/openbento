@@ -60,7 +60,7 @@ export const SOCIAL_PLATFORM_OPTIONS: SocialPlatformOption[] = [
     icon: Instagram,
     placeholder: 'yourhandle',
     kind: 'handle',
-    buildUrl: (input) => `https://instagram.com/${encodeURIComponent(normalizeHandle(input))}`,
+    buildUrl: (input) => `https://www.instagram.com/${encodeURIComponent(normalizeHandle(input))}/`,
     formatHandleForDisplay: (h) => `@${normalizeHandle(h)}`,
   },
   {
@@ -105,7 +105,7 @@ export const SOCIAL_PLATFORM_OPTIONS: SocialPlatformOption[] = [
     icon: Linkedin,
     placeholder: 'your-handle',
     kind: 'handle',
-    buildUrl: (input) => `https://www.linkedin.com/in/${encodeURIComponent(normalizeHandle(input))}`,
+    buildUrl: (input) => `https://www.linkedin.com/in/${encodeURIComponent(normalizeHandle(input))}/`,
     formatHandleForDisplay: (h) => normalizeHandle(h),
   },
   {
@@ -114,7 +114,7 @@ export const SOCIAL_PLATFORM_OPTIONS: SocialPlatformOption[] = [
     icon: Facebook,
     placeholder: 'yourhandle',
     kind: 'handle',
-    buildUrl: (input) => `https://facebook.com/${encodeURIComponent(normalizeHandle(input))}`,
+    buildUrl: (input) => `https://www.facebook.com/${encodeURIComponent(normalizeHandle(input))}`,
     formatHandleForDisplay: (h) => normalizeHandle(h),
   },
   {
@@ -123,7 +123,7 @@ export const SOCIAL_PLATFORM_OPTIONS: SocialPlatformOption[] = [
     icon: Twitch,
     placeholder: 'yourhandle',
     kind: 'handle',
-    buildUrl: (input) => `https://twitch.tv/${encodeURIComponent(normalizeHandle(input))}`,
+    buildUrl: (input) => `https://www.twitch.tv/${encodeURIComponent(normalizeHandle(input))}`,
     formatHandleForDisplay: (h) => normalizeHandle(h),
   },
   {
@@ -159,7 +159,7 @@ export const SOCIAL_PLATFORM_OPTIONS: SocialPlatformOption[] = [
     icon: MessageCircle,
     placeholder: 'yourhandle',
     kind: 'handle',
-    buildUrl: (input) => `https://reddit.com/u/${encodeURIComponent(normalizeHandle(input))}`,
+    buildUrl: (input) => `https://www.reddit.com/user/${encodeURIComponent(normalizeHandle(input))}/`,
     formatHandleForDisplay: (h) => `u/${normalizeHandle(h)}`,
   },
   {
@@ -168,7 +168,7 @@ export const SOCIAL_PLATFORM_OPTIONS: SocialPlatformOption[] = [
     icon: Pin,
     placeholder: 'yourhandle',
     kind: 'handle',
-    buildUrl: (input) => `https://pinterest.com/${encodeURIComponent(normalizeHandle(input))}`,
+    buildUrl: (input) => `https://www.pinterest.com/${encodeURIComponent(normalizeHandle(input))}/`,
     formatHandleForDisplay: (h) => normalizeHandle(h),
   },
   {

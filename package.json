@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "analytics:supabase:init": "node scripts/supabase-analytics-init.mjs"
   },
   "dependencies": {
     "file-saver": "^2.0.5",
