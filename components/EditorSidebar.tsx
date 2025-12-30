@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { BlockData, BlockType, SocialPlatform, UserProfile } from '../types';
 import { BASE_COLORS } from '../constants';
 import { X, Link, MapPin, Image as ImageIcon, Type, Github, Upload, Trash2, LayoutGrid, Type as TypeIcon, MoveVertical, ArrowLeftRight, Youtube, ExternalLink, RefreshCw, Loader2, Grid3X3, Square, List, Palette, CheckCircle2 } from 'lucide-react';
@@ -14,41 +14,25 @@ import {
 
 interface EditorSidebarProps {
   profile: UserProfile;
-  setProfile: (p: UserProfile) => void;
   addBlock: (type: BlockType) => void;
   editingBlock: BlockData | null;
   updateBlock: (b: BlockData) => void;
   onDelete: (id: string) => void;
   closeEdit: () => void;
   isOpen: boolean;
-  activeBentoId?: string;
 }
 
 const EditorSidebar: React.FC<EditorSidebarProps> = ({
   profile,
-  setProfile,
   addBlock,
   editingBlock,
   updateBlock,
   onDelete,
   closeEdit,
   isOpen,
-  activeBentoId
 }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isFetching, setIsFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfile({ ...profile, avatarUrl: reader.result as string });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleBlockImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -246,14 +230,6 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
       return editingBlock.color === c.bg;
   };
 
-  const analyticsSupabaseUrl = profile.analytics?.supabaseUrl?.trim().replace(/\/+$/, '') || '';
-  const analyticsTrackEndpoint = analyticsSupabaseUrl
-    ? `${analyticsSupabaseUrl}/functions/v1/openbento-analytics-track`
-    : '';
-  const analyticsAdminEndpoint = analyticsSupabaseUrl
-    ? `${analyticsSupabaseUrl}/functions/v1/openbento-analytics-admin`
-    : '';
-
 	  return (
 	    <div 
 	        className={`fixed right-0 top-0 h-screen w-full md:w-[400px] bg-white z-50 shadow-xl transform transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col border-l border-gray-200
@@ -262,14 +238,14 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
       
       {/* Header */}
 	      <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-20">
-        <div>
-          <h2 className="font-bold text-lg text-gray-900 tracking-tight">
-            {editingBlock ? 'Edit Block' : 'Builder'}
-          </h2>
-          <p className="text-xs text-gray-400 mt-0.5">{editingBlock ? 'Customize your block' : 'Create your identity'}</p>
-        </div>
-        <button onClick={closeEdit} className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors text-gray-400 hover:text-gray-600"><X size={18} /></button>
-      </div>
+	        <div>
+	          <h2 className="font-bold text-lg text-gray-900 tracking-tight">
+	            {editingBlock ? 'Edit Block' : 'Edit'}
+	          </h2>
+	          <p className="text-xs text-gray-400 mt-0.5">{editingBlock ? 'Customize your block' : 'Build your layout'}</p>
+	        </div>
+	        <button onClick={closeEdit} className="p-2.5 hover:bg-gray-100 rounded-xl transition-colors text-gray-400 hover:text-gray-600"><X size={18} /></button>
+	      </div>
 
       <div className="flex-1 overflow-y-auto p-8 space-y-10 no-scrollbar pb-20">
         
@@ -558,191 +534,51 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
             </div>
 
           </div>
-        ) : (
-          /* MAIN PROFILE & ADD BLOCKS (Unchanged) */
-          <div className="space-y-12 animate-fade-in">
-             {/* ... Profile ... */}
-             <section className="space-y-5">
-                <div className="flex items-center gap-2">
-	                    <div className="w-1 h-5 bg-gray-900 rounded-full"></div>
-                    <h3 className="text-base font-bold text-gray-900">Profile Identity</h3>
-                </div>
-                
-                <div className="flex gap-5 items-start">
-                    <div className="relative group">
-	                        <div className="w-20 h-20 rounded-2xl overflow-hidden bg-gray-100 ring-2 ring-white shadow-lg group-hover:ring-gray-200 transition-all cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                            <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
-                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
-                                <Upload className="text-white w-5 h-5" />
-                            </div>
-                        </div>
-                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
-                    </div>
-                    <div className="flex-1">
-                        <input 
-                            type="text" value={profile.name} onChange={(e) => setProfile({...profile, name: e.target.value})}
-                            className="w-full bg-transparent border-b-2 border-gray-200 pb-2 text-xl font-bold focus:border-violet-500 focus:outline-none placeholder-gray-300 transition-colors"
-                            placeholder="Your Name"
-                        />
-                        <p className="text-xs text-gray-400 mt-2">Click avatar to change</p>
-                    </div>
-                </div>
+	        ) : (
+	          <div className="space-y-8 animate-fade-in">
+	            <section className="space-y-3">
+	              <div className="flex items-center gap-2">
+	                <div className="w-1 h-5 bg-gray-900 rounded-full"></div>
+	                <h3 className="text-base font-bold text-gray-900">Design</h3>
+	              </div>
+	              <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl">
+	                <p className="text-sm text-gray-600 leading-relaxed">
+	                  Use <span className="font-semibold">Settings</span> to configure profile, branding, analytics and deploy defaults.
+	                  Click a block to edit its content, size and colors.
+	                </p>
+	              </div>
+	            </section>
 
-		                <div>
-		                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Bio</label>
-		                   <textarea 
-		                      value={profile.bio} onChange={(e) => setProfile({...profile, bio: e.target.value})}
-		                      className="w-full bg-gray-50/80 border border-gray-200 rounded-xl p-3.5 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 focus:outline-none h-24 resize-none text-sm leading-relaxed transition-all"
-		                      placeholder="Tell your story..."
-		                   />
-		                </div>
+	            <section className="space-y-5">
+	              <div className="flex items-center gap-2">
+	                <div className="w-1 h-5 bg-gray-900 rounded-full"></div>
+	                <h3 className="text-base font-bold text-gray-900">Add Content</h3>
+	              </div>
 
-		                {import.meta.env.DEV && (
-		                  <div>
-		                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Live URL (Dev)</label>
-		                     <input
-		                        type="text"
-		                        value={profile.liveUrl || ''}
-		                        onChange={(e) => setProfile({ ...profile, liveUrl: e.target.value })}
-		                        className="w-full bg-gray-50/80 border border-gray-200 rounded-xl p-3.5 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 focus:outline-none text-sm leading-relaxed transition-all"
-		                        placeholder="https://your-domain.com"
-		                     />
-		                     <p className="text-[10px] text-gray-400 mt-2">Used by the “View Online” button in dev.</p>
-		                  </div>
-		                )}
-
-		                <div>
-		                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Branding</label>
-		                   <div className="flex items-center justify-between gap-4 p-4 bg-white border border-gray-100 rounded-2xl">
-		                      <div className="min-w-0">
-		                        <p className="text-sm font-semibold text-gray-900">Show OpenBento credit</p>
-		                        <p className="text-xs text-gray-400">Displays the OpenBento footer in the builder and export.</p>
-		                      </div>
-		                      <button
-		                        type="button"
-		                        onClick={() => setProfile({ ...profile, showBranding: !(profile.showBranding !== false) })}
-		                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
-		                          profile.showBranding !== false ? 'bg-gray-900' : 'bg-gray-200'
-		                        }`}
-		                        aria-pressed={profile.showBranding !== false}
-		                        aria-label="Toggle OpenBento branding"
-		                      >
-		                        <span
-		                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-		                            profile.showBranding !== false ? 'translate-x-6' : 'translate-x-1'
-		                          }`}
-		                        />
-		                      </button>
-		                   </div>
-		                </div>
-
-		                <div>
-		                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Analytics (Supabase)</label>
-		                   <div className="space-y-4 p-4 bg-white border border-gray-100 rounded-2xl">
-		                      <div className="flex items-center justify-between gap-4">
-		                        <div className="min-w-0">
-		                          <p className="text-sm font-semibold text-gray-900">Enable analytics</p>
-		                          <p className="text-xs text-gray-400">Tracks inbound page views and outbound clicks on the exported page.</p>
-		                        </div>
-		                        <button
-		                          type="button"
-		                          onClick={() =>
-		                            setProfile({
-		                              ...profile,
-		                              analytics: {
-		                                ...(profile.analytics ?? {}),
-		                                enabled: !(profile.analytics?.enabled ?? false),
-		                              },
-		                            })
-		                          }
-		                          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
-		                            profile.analytics?.enabled ? 'bg-gray-900' : 'bg-gray-200'
-		                          }`}
-		                          aria-pressed={!!profile.analytics?.enabled}
-		                          aria-label="Toggle analytics"
-		                        >
-		                          <span
-		                            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-		                              profile.analytics?.enabled ? 'translate-x-6' : 'translate-x-1'
-		                            }`}
-		                          />
-		                        </button>
-		                      </div>
-
-		                      <div>
-		                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Supabase Project URL</label>
-		                        <input
-		                          type="text"
-		                          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 focus:ring-2 focus:ring-black/5 focus:border-black focus:outline-none transition-all font-medium text-gray-600"
-		                          value={profile.analytics?.supabaseUrl || ''}
-		                          onChange={(e) =>
-		                            setProfile({
-		                              ...profile,
-		                              analytics: {
-		                                ...(profile.analytics ?? {}),
-		                                supabaseUrl: e.target.value,
-		                              },
-		                            })
-		                          }
-		                          placeholder="https://xxxx.supabase.co"
-		                        />
-		                        <p className="text-[10px] text-gray-400 mt-2">
-		                          Required for export tracking. Deploy the Edge Functions <code>openbento-analytics-track</code> and <code>openbento-analytics-admin</code>.
-		                        </p>
-		                      </div>
-
-		                      {activeBentoId && (
-		                        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
-		                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Site ID</p>
-		                          <p className="text-xs font-mono text-gray-700 break-all">{activeBentoId}</p>
-		                        </div>
-		                      )}
-
-		                      {analyticsSupabaseUrl && (
-		                        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-3">
-		                          <div>
-		                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Track endpoint</p>
-		                            <p className="text-xs font-mono text-gray-700 break-all">{analyticsTrackEndpoint}</p>
-		                          </div>
-		                          <div>
-		                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Admin endpoint</p>
-		                            <p className="text-xs font-mono text-gray-700 break-all">{analyticsAdminEndpoint}</p>
-		                          </div>
-		                        </div>
-		                      )}
-		                   </div>
-		                </div>
-		             </section>
-
-             <section className="space-y-5">
-                <div className="flex items-center gap-2">
-	                    <div className="w-1 h-5 bg-gray-900 rounded-full"></div>
-                    <h3 className="text-base font-bold text-gray-900">Add Content</h3>
-                </div>
-                
-	                <div className="grid grid-cols-3 gap-3">
-	                    {[
-	                        { type: BlockType.LINK, label: 'Link', icon: Link, color: 'bg-blue-600' },
-	                        { type: BlockType.SOCIAL, label: 'Social', icon: Github, color: 'bg-violet-600' },
-	                        { type: BlockType.IMAGE, label: 'Image', icon: ImageIcon, color: 'bg-pink-600' },
-	                        { type: BlockType.TEXT, label: 'Note', icon: TypeIcon, color: 'bg-emerald-600' },
-	                        { type: BlockType.MAP, label: 'Map', icon: MapPin, color: 'bg-amber-500' },
-	                        { type: BlockType.SPACER, label: 'Spacer', icon: MoveVertical, color: 'bg-gray-600' },
-	                    ].map((btn) => (
-	                        <button 
-	                            key={btn.type} onClick={() => addBlock(btn.type)} 
-	                            className="flex flex-col items-center gap-2 p-4 bg-white border border-gray-100 rounded-2xl hover:border-gray-200 hover:shadow-lg transition-all group"
-	                        >
-	                            <div className={`w-10 h-10 rounded-xl ${btn.color} text-white flex items-center justify-center shadow-sm transition-colors`}>
-	                                <btn.icon size={18}/>
-	                            </div>
-	                            <span className="text-xs font-semibold text-gray-600">{btn.label}</span>
-	                        </button>
-	                    ))}
-	                </div>
-             </section>
-          </div>
-        )}
+	              <div className="grid grid-cols-3 gap-3">
+	                {[
+	                  { type: BlockType.LINK, label: 'Link', icon: Link, color: 'bg-blue-600' },
+	                  { type: BlockType.SOCIAL, label: 'Social', icon: Github, color: 'bg-violet-600' },
+	                  { type: BlockType.IMAGE, label: 'Image', icon: ImageIcon, color: 'bg-pink-600' },
+	                  { type: BlockType.TEXT, label: 'Note', icon: TypeIcon, color: 'bg-emerald-600' },
+	                  { type: BlockType.MAP, label: 'Map', icon: MapPin, color: 'bg-amber-500' },
+	                  { type: BlockType.SPACER, label: 'Spacer', icon: MoveVertical, color: 'bg-gray-600' },
+	                ].map((btn) => (
+	                  <button
+	                    key={btn.type}
+	                    onClick={() => addBlock(btn.type)}
+	                    className="flex flex-col items-center gap-2 p-4 bg-white border border-gray-100 rounded-2xl hover:border-gray-200 hover:shadow-lg transition-all group"
+	                  >
+	                    <div className={`w-10 h-10 rounded-xl ${btn.color} text-white flex items-center justify-center shadow-sm transition-colors`}>
+	                      <btn.icon size={18}/>
+	                    </div>
+	                    <span className="text-xs font-semibold text-gray-600">{btn.label}</span>
+	                  </button>
+	                ))}
+	              </div>
+	            </section>
+	          </div>
+	        )}
 	      </div>
 
 	      {profile.showBranding !== false && (

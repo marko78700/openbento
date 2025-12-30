@@ -3,9 +3,10 @@ import { SiteData, UserProfile, BlockData, BlockType, SavedBento } from '../type
 import Block from './Block';
 import EditorSidebar from './EditorSidebar';
 import ProfileDropdown from './ProfileDropdown';
+import SettingsModal from './SettingsModal';
 import { exportSite, type ExportDeploymentTarget } from '../services/exportService';
 import { getOrCreateActiveBento, updateBentoData, setActiveBentoId, getBento } from '../services/storageService';
-import { Download, Layout, Share2, X, Check, Plus, Eye, Smartphone, Monitor, Home, Globe, BarChart3, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Download, Layout, Share2, X, Check, Plus, Eye, Smartphone, Monitor, Home, Globe, BarChart3, RefreshCw, AlertTriangle, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface BuilderProps {
@@ -84,6 +85,7 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -550,6 +552,15 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
                     <span className="hidden sm:inline">{isSidebarOpen ? 'Preview' : 'Edit'}</span>
                  </button>
 
+                 <button
+                   onClick={() => setShowSettingsModal(true)}
+                   className="bg-white px-5 py-2.5 rounded-xl shadow-sm border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                   title="Open settings"
+                 >
+                   <Settings size={18} />
+                   <span className="hidden sm:inline">Settings</span>
+                 </button>
+
                  {import.meta.env.DEV && (
                    <button
                      onClick={() => {
@@ -607,7 +618,10 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
                 whileHover={{ scale: 1.02, rotate: 2 }}
                 whileTap={{ scale: 0.98 }}
                 className="relative group cursor-pointer mb-8" 
-                onClick={() => { setEditingBlockId(null); setIsSidebarOpen(true); }}
+                onClick={() => {
+                  setEditingBlockId(null);
+                  setShowSettingsModal(true);
+                }}
               >
                 <div className="w-40 h-40 rounded-3xl overflow-hidden ring-4 ring-white shadow-2xl relative z-10 bg-gray-100">
                   {profile.avatarUrl ? (
@@ -625,7 +639,10 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
               <div className="space-y-3">
                 <div 
                   className="group cursor-pointer"
-                  onClick={() => { setEditingBlockId(null); setIsSidebarOpen(true); }}
+                  onClick={() => {
+                    setEditingBlockId(null);
+                    setShowSettingsModal(true);
+                  }}
                 >
                   <h1 className="text-4xl font-bold tracking-tight text-gray-900 group-hover:text-violet-600 transition-colors leading-[1.1]">
                     {profile.name}
@@ -633,7 +650,10 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
                 </div>
                 <p 
                   className="text-base text-gray-500 font-medium leading-relaxed whitespace-pre-wrap cursor-pointer hover:text-gray-700 transition-colors max-w-xs"
-                  onClick={() => { setEditingBlockId(null); setIsSidebarOpen(true); }}
+                  onClick={() => {
+                    setEditingBlockId(null);
+                    setShowSettingsModal(true);
+                  }}
                 >
                   {profile.bio}
                 </p>
@@ -954,16 +974,27 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
       <EditorSidebar 
          isOpen={isSidebarOpen}
          profile={profile}
-         setProfile={handleSetProfile}
          addBlock={addBlock}
          editingBlock={editingBlock}
          updateBlock={updateBlock}
          onDelete={deleteBlock}
          closeEdit={closeSidebar}
-         activeBentoId={activeBento?.id}
       />
 
-      {/* 3. DEPLOY MODAL */}
+      {/* 3. SETTINGS MODAL */}
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        profile={profile}
+        setProfile={handleSetProfile}
+        activeBentoId={activeBento?.id}
+        deployTarget={deployTarget}
+        setDeployTarget={setDeployTarget}
+        analyticsAdminToken={analyticsAdminToken}
+        setAnalyticsAdminToken={setAnalyticsAdminToken}
+      />
+
+      {/* 4. DEPLOY MODAL */}
       <AnimatePresence>
       {showDeployModal && (
           <motion.div 
@@ -1090,7 +1121,7 @@ const Builder: React.FC<BuilderProps> = ({ onBack }) => {
 	      )}
       </AnimatePresence>
 
-      {/* 4. ANALYTICS MODAL */}
+      {/* 5. ANALYTICS MODAL */}
       <AnimatePresence>
       {showAnalyticsModal && (
           <motion.div 
