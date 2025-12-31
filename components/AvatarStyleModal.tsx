@@ -196,25 +196,6 @@ const AvatarStyleModal: React.FC<AvatarStyleModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Border width */}
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-medium text-gray-500 w-16">Width</span>
-                      <div className="flex gap-2">
-                        {[2, 3, 4, 6].map((width) => (
-                          <button
-                            key={width}
-                            onClick={() => updateStyle({ borderWidth: width })}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                              currentStyle.borderWidth === width
-                                ? 'bg-violet-500 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                          >
-                            {width}px
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   </motion.div>
                 )}
               </div>

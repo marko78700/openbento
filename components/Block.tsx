@@ -568,11 +568,36 @@ const Block: React.FC<BlockProps> = ({
 
       <div className="w-full h-full pointer-events-none relative z-10">
         
-        {/* IMAGE BLOCK */}
+        {/* IMAGE/VIDEO/GIF BLOCK */}
         {block.type === BlockType.IMAGE && block.imageUrl && !isLinkWithImage ? (
-          <div className="w-full h-full relative">
-              <img src={block.imageUrl} alt={block.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+          <div className="w-full h-full relative overflow-hidden">
+              {/* Check if it's a video or gif */}
+              {/\.(mp4|webm|ogg|mov)$/i.test(block.imageUrl) ? (
+                <video
+                  src={block.imageUrl}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                />
+              ) : (
+                <img
+                  src={block.imageUrl}
+                  alt={block.title || ''}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+              )}
+              {/* Subtle gradient from bottom for optional text */}
+              {block.title && (
+                <>
+                  <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 via-black/20 to-transparent pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <p className="text-white font-semibold text-sm drop-shadow-lg">{block.title}</p>
+                    {block.subtext && <p className="text-white/80 text-xs mt-0.5">{block.subtext}</p>}
+                  </div>
+                </>
+              )}
           </div>
         ) : block.type === BlockType.MAP ? (
           /* MAP BLOCK */

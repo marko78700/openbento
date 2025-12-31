@@ -551,10 +551,10 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
                                 if (editingBlock.type === BlockType.IMAGE) updateBlock({...editingBlock, imageUrl: e.target.value});
                                 else updateBlock({...editingBlock, content: e.target.value});
                             }}
-                            placeholder={editingBlock.type === BlockType.IMAGE ? '/images/photo.jpg or https://...' : 'https://...'}
+                            placeholder={editingBlock.type === BlockType.IMAGE ? '/images/photo.jpg, video.mp4 or URL' : 'https://...'}
                         />
                         {editingBlock.type === BlockType.IMAGE && (
-                            <p className="text-[10px] text-gray-400 mt-1.5">Use a URL/path instead of upload to avoid base64 in JSON</p>
+                            <p className="text-[10px] text-gray-400 mt-1.5">Supports images, GIFs, and videos (.mp4, .webm, .mov)</p>
                         )}
                     </div>
                 )}
